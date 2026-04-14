@@ -1,75 +1,73 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#0f766e" />
-  <link rel="manifest" href="manifest.json" />
-  <title>inove MED</title>
-  <style>
-    * { box-sizing: border-box; font-family: Arial, sans-serif; }
-    body { margin: 0; background: #f0fdfa; color: #134e4a; }
-    .app { max-width: 700px; margin: auto; padding: 20px; }
-    .card { background: white; border-radius: 18px; padding: 18px; box-shadow: 0 4px 20px rgba(0,0,0,.08); margin-bottom: 16px; }
-    h1 { text-align: center; margin-bottom: 20px; }
-    input, button { width: 100%; padding: 12px; margin-top: 10px; border-radius: 12px; border: 1px solid #99f6e4; }
-    button { background: #0f766e; color: white; border: none; font-weight: bold; cursor: pointer; }
-    .item { padding: 12px; border: 1px solid #ccfbf1; border-radius: 12px; margin-top: 10px; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
-    .small { font-size: 14px; color: #0f766e; }
-    .danger { background: #dc2626; }
-  </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="theme-color" content="#0f766e" />
+<title>inove MED</title>
+<style>
+*{box-sizing:border-box;font-family:Arial,sans-serif}
+body{margin:0;background:#f0fdfa;color:#134e4a}
+.app{max-width:700px;margin:auto;padding:20px}
+.card{background:#fff;border-radius:18px;padding:18px;box-shadow:0 4px 20px rgba(0,0,0,.08);margin-bottom:16px}
+input,select,button{width:100%;padding:14px;margin-top:10px;border-radius:12px;border:1px solid #99f6e4}
+button{background:#0f766e;color:#fff;border:none;font-weight:bold}
+.item{padding:12px;border:1px solid #ccfbf1;border-radius:12px;margin-top:10px}
+</style>
 </head>
 <body>
-  <div class="app">
-    <h1>💊 inove MED</h1>
-    <div class="card">
-      <h3>Cadastrar medicamento</h3>
-      <input id="nome" placeholder="Nome do medicamento" />
-      <input id="hora" type="time" />
-      <button onclick="salvarMedicamento()">Salvar e ativar alerta</button>
-    </div>
-    <div class="card">
-      <h3>Medicamentos cadastrados</h3>
-      <div id="lista"></div>
-    </div>
-  </div>
+<div class="app">
+<h1>💊 inove MED</h1>
+<div class="card">
+<input id="nome" placeholder="Nome do medicamento">
+<input id="hora" type="time">
+<select id="recorrencia">
+<option value="24">Todos os dias</option>
+<option value="12">A cada 12 horas</option>
+<option value="8">A cada 8 horas</option>
+<option value="6">A cada 6 horas</option>
+</select>
+<button onclick="salvarMedicamento()">Salvar</button>
+</div>
+<div class="card"><div id="lista"></div></div>
+<div class="card"><h3>📋 Histórico</h3><div id="historico"></div><button onclick="gerarPDF()">📄 Gerar relatório PDF</button></div>
+</div>
 <script>
-const STORAGE_KEY='inove_med_medicamentos';
-const getMedicamentos=()=>JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]');
-function setMedicamentos(lista){localStorage.setItem(STORAGE_KEY,JSON.stringify(lista));renderizar();}
+const KEY='inove_med_medicamentos', HIST='inove_med_historico';
+const getLista=()=>JSON.parse(localStorage.getItem(KEY)||'[]');
+const getHistorico=()=>JSON.parse(localStorage.getItem(HIST)||'[]');
+const setLista=l=>{localStorage.setItem(KEY,JSON.stringify(l));renderizar();}
+const setHistorico=h=>{localStorage.setItem(HIST,JSON.stringify(h));renderHistorico();}
 function salvarMedicamento(){
- const nome=document.getElementById('nome').value.trim();
- const hora=document.getElementById('hora').value;
- if(!nome||!hora){alert('Preencha o nome e a hora do medicamento.');return;}
- const lista=getMedicamentos(); lista.push({id:Date.now(),nome,hora,ultimoAviso:''}); setMedicamentos(lista);
- document.getElementById('nome').value=''; document.getElementById('hora').value='';
+ const nome=nomeEl.value.trim(), hora=horaEl.value, recorrencia=parseInt(recEl.value);
+ if(!nome||!hora) return alert('Preencha os campos');
+ const [h,m]=hora.split(':').map(Number); const dt=new Date(); dt.setHours(h,m,0,0);
+ if(dt<new Date()) dt.setHours(dt.getHours()+recorrencia);
+ const l=getLista(); l.push({id:Date.now(),nome,recorrencia,proximoHorario:dt.toISOString()}); setLista(l);
 }
-function removerMedicamento(id){setMedicamentos(getMedicamentos().filter(i=>i.id!==id));}
+const nomeEl=document.getElementById('nome'), horaEl=document.getElementById('hora'), recEl=document.getElementById('recorrencia');
 function renderizar(){
- const lista=getMedicamentos(), el=document.getElementById('lista'); el.innerHTML='';
- if(!lista.length){el.innerHTML='<div class="small">Nenhum medicamento cadastrado.</div>'; return;}
- lista.forEach(item=>{
-   const div=document.createElement('div'); div.className='item';
-   div.innerHTML=`<div><strong>${item.nome}</strong><br><span class="small">Horário: ${item.hora}</span></div>
-   <button class="danger" onclick="removerMedicamento(${item.id})">Excluir</button>`;
-   el.appendChild(div);
- });
+ document.getElementById('lista').innerHTML=getLista().map(item=>{
+  const dt=new Date(item.proximoHorario);
+  return `<div class='item'><strong>${item.nome}</strong><br>Próximo: ${dt.toLocaleString('pt-BR')} • ${item.recorrencia}h</div>`;
+ }).join('') || 'Nenhum medicamento';
 }
-async function pedirPermissao(){ if('Notification' in window && Notification.permission!=='granted'){ await Notification.requestPermission();}}
+function renderHistorico(){
+ document.getElementById('historico').innerHTML=getHistorico().map(h=>`<div class='item'><strong>${h.nome}</strong><br>${h.tomadoEm}</div>`).join('') || 'Nenhuma dose registrada';
+}
+function confirmarDose(item){
+ const ok=confirm(`💊 ${item.nome}\nClique em OK para confirmar JÁ TOMEI`);
+ if(!ok) return;
+ const lista=getLista(); const med=lista.find(x=>x.id===item.id);
+ const prox=new Date(); prox.setHours(prox.getHours()+med.recorrencia);
+ med.proximoHorario=prox.toISOString(); setLista(lista);
+ const hist=getHistorico(); hist.unshift({nome:med.nome,tomadoEm:new Date().toLocaleString('pt-BR')}); setHistorico(hist);
+}
 function verificarAlarmes(){
- const agora=new Date(), horaAtual=agora.toTimeString().slice(0,5), hoje=agora.toISOString().slice(0,10);
- const lista=getMedicamentos(); let alterado=false;
- lista.forEach(item=>{
-   if(item.hora===horaAtual && item.ultimoAviso!==hoje){
-     if(Notification.permission==='granted'){ new Notification('💊 Hora do medicamento',{body:`Tomar: ${item.nome} às ${item.hora}`});}
-     const confirmou=confirm(`💊 Hora de tomar: ${item.nome}\n\nClique em OK para confirmar: JÁ TOMEI`);
-     if(confirmou){ item.ultimoAviso=hoje; item.ultimaConfirmacao=new Date().toLocaleString('pt-BR'); alterado=true; }
-   }
- });
- if(alterado) setMedicamentos(lista);
+ const agora=new Date();
+ getLista().forEach(item=>{ if(Math.abs(agora-new Date(item.proximoHorario))<30000) confirmarDose(item); });
 }
-if('serviceWorker' in navigator){ navigator.serviceWorker.register('./service-worker.js');}
-pedirPermissao(); renderizar(); setInterval(verificarAlarmes,30000);
+function gerarPDF(){ window.print(); }
+renderizar(); renderHistorico(); setInterval(verificarAlarmes,30000);
 </script>
-</body>
-</html>
+</body></html>

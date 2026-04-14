@@ -1,0 +1,9 @@
+{
+  "name": "inove MED",
+  "short_name": "inove MED",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f0fdfa",
+  "theme_color": "#0f766e",
+  "icons": []
+}
